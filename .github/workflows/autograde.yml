@@ -12,9 +12,9 @@ jobs:
   grade:
     runs-on: ubuntu-latest
     env:
-      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}   # secreto del repo
-      RUBRICA_PROMPT: ${{ secrets.RUBRICA_PROMPT }}   # secreto del repo (rúbrica interna)
-      MODEL_MAIN: gpt-5-mini                           # cambia a gpt-5-thinking si lo prefieres
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      RUBRICA_PROMPT: ${{ secrets.RUBRICA_PROMPT }}
+      MODEL_MAIN: "gpt-5-mini"
 
     steps:
       - name: Checkout
@@ -29,6 +29,7 @@ jobs:
             gcc-aarch64-linux-gnu \
             make \
             python3-pip
+          python3 -m pip install --quiet --upgrade openai
 
       - name: Compilar
         run: make build
@@ -36,7 +37,6 @@ jobs:
       - name: Asegurar permisos de ejecución para run_tests.sh
         run: |
           if [ -f tests/run_tests.sh ]; then
-            echo "Dando permiso de ejecución a tests/run_tests.sh"
             chmod +x tests/run_tests.sh
           else
             echo "⚠️ No se encontró tests/run_tests.sh"
@@ -46,8 +46,7 @@ jobs:
         id: tests
         run: |
           bash tests/run_tests.sh > tests/results.txt
-          echo "exitcode=$?" >> $GITHUB_OUTPUT
-
+          echo "exitcode=$?" >> "$GITHUB_OUTPUT"
 
       - name: Subir artefactos (logs y binarios)
         uses: actions/upload-artifact@v4
@@ -62,77 +61,27 @@ jobs:
         id: score
         run: |
           PASS_TESTS=0
-          if [ "${{ steps.tests.outputs.exitcode }}" = "0" ]; then
-            PASS_TESTS=1
-          fi
+          if [ "${{ steps.tests.outputs.exitcode }}" = "0" ]; then PASS_TESTS=1; fi
           PASS_BUILD=0
-          if [ -f prog ]; then
-            PASS_BUILD=1
-          fi
+          if [ -f prog ]; then PASS_BUILD=1; fi
 
           SCORE=0
           if [ "$PASS_BUILD" = "1" ]; then SCORE=$((SCORE+40)); fi
           if [ "$PASS_TESTS" = "1" ]; then SCORE=$((SCORE+60)); fi
 
-          echo "score=$SCORE" >> $GITHUB_OUTPUT
+          echo "score=$SCORE" >> "$GITHUB_OUTPUT"
           {
             echo "### Resumen Autograding"
             echo "- Compilación: $([ $PASS_BUILD = 1 ] && echo ✅ || echo ❌)"
             echo "- Pruebas: $([ $PASS_TESTS = 1 ] && echo ✅ || echo ❌)"
             echo "Puntaje: $SCORE/100"
-          } >> $GITHUB_STEP_SUMMARY
+          } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: 🧠 Generar feedback en español (GPT-5, rúbrica en secreto)
-      
-        id: gpt_feedback
+      - name: Generar feedback (GPT, español)
         if: ${{ github.event_name == 'pull_request' }}
-        run: |
-          python3 -m pip install --quiet --upgrade openai
-          python3 - << 'PY'
-import os, glob
-from openai import OpenAI
+        run: python3 scripts/feedback_runner.py
 
-client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
-rubrica = os.environ["RUBRICA_PROMPT"]
-modelo  = os.environ.get("MODEL_MAIN", "gpt-5")
-
-def read_sources():
-    chunks = []
-    for path in sorted(glob.glob("src/**/*.S", recursive=True) + glob.glob("src/**/*.s", recursive=True)):
-        try:
-            with open(path, "r", encoding="utf-8", errors="ignore") as f:
-                chunks.append(f"\n---\nArchivo: {path}\n\n{f.read()}\n")
-        except Exception as e:
-            chunks.append(f"\n---\nArchivo: {path}\n\n<error leyendo archivo: {e}>\n")
-    return "".join(chunks) if chunks else "<sin código .S/.s en /src>"
-
-def read_results():
-    try:
-        with open("tests/results.txt", "r", encoding="utf-8", errors="ignore") as f:
-            return f.read()
-    except:
-        return "(sin resultados)"
-
-codigo = read_sources()
-logs = read_results()
-
-prompt = f"""{rubrica}
-
-Código del estudiante:
-{codigo}
-
-Resumen de autograding (logs):
-{logs}
-"""
-
-resp = client.responses.create(model=modelo, input=prompt)
-feedback = resp.output_text.strip()
-
-with open("FEEDBACK.md", "w", encoding="utf-8") as f:
-    f.write(feedback)
-PY
-
-      - name: Comentar en el PR (puntaje + resultados + feedback)
+      - name: Comentar en el PR
         if: ${{ github.event_name == 'pull_request' }}
         uses: actions/github-script@v7
         with:

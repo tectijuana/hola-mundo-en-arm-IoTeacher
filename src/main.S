@@ -1,5 +1,5 @@
     .section .data
-msg:    .asciz "Hello World\n"
+msg:    .asciz "Hola Mundo en ARM\n"
 
     .section .text
     .global _start
@@ -9,7 +9,7 @@ _start:
     mov     x8, #64          // syscall: write
     mov     x0, #1           // fd = 1 (stdout)
     ldr     x1, =msg         // buf
-    mov     x2, #12          // len ("Hello World\n" = 12 bytes)
+    mov     x2, #18          // len ("Hello World\n" = 12 bytes)
     svc     #0
 
     // exit(0)

@@ -1,13 +1,28 @@
-TARGET=prog
-SRC=src/main.S
-all: test
+# Compilador y opciones
+AS      = aarch64-linux-gnu-as
+LD      = aarch64-linux-gnu-ld
+CC      = aarch64-linux-gnu-gcc
+QEMU    = qemu-aarch64
+CFLAGS  = -nostdlib
 
-build:
-aarch64-linux-gnu-as -o $(TARGET).o $(SRC)
-aarch64-linux-gnu-ld -o $(TARGET) $(TARGET).o
+# Archivos
+SRC     = src/main.S
+OBJ     = main.o
+BIN     = prog
 
-run: build
-qemu-aarch64 -L /usr/aarch64-linux-gnu ./$(TARGET)
+# Compilar y enlazar
+build: $(BIN)
 
-test: build
-bash tests/run_tests.sh
+$(BIN): $(OBJ)
+	$(LD) -o $(BIN) $(OBJ)
+
+$(OBJ): $(SRC)
+	$(AS) -o $(OBJ) $(SRC)
+
+# Ejecutar con QEMU
+run: $(BIN)
+	$(QEMU) -L /usr/aarch64-linux-gnu ./$(BIN)
+
+# Limpiar
+clean:
+	rm -f $(OBJ) $(BIN)
