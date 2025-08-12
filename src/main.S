@@ -1,5 +1,5 @@
     .section .data
-msg:    .asciz "Hello World\n"
+msg:    .asciz "Hello World ARM\n"
 
     .section .text
     .global _start
