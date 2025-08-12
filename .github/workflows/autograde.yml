@@ -14,7 +14,7 @@ jobs:
     env:
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       RUBRICA_PROMPT: ${{ secrets.RUBRICA_PROMPT }}
-      MODEL_MAIN: gpt-5-mini
+      MODEL_MAIN: "gpt-5-mini"
 
     steps:
       - name: Checkout
